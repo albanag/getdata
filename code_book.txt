@@ -1,0 +1,10 @@
+
+SubjectID: the identifying number of a subject
+
+ActivityCode: the code that identifies an activity
+
+ActivityDescription: the corresponding activity description
+
+Measurement: various measurements
+
+meanVal: the mean value of the measurement calculated over a number of observations

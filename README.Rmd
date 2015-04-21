@@ -1,0 +1,112 @@
+---
+title: "README"
+author: "A Gaba"
+date: "April 21, 2015"
+output: html_document
+---
+```{r}
+library(reshape2)
+library(dplyr)
+```
+# Data sets
+
+There are three major datasets that we create, respectively, measurements, observations and subjects. We create therefore one function for retrieving and formating the data for each of these data sets. 
+
+## Observations table
+The following function read the training and test data sets and binds the resulting tables by row into one table.
+Then, a subset of the observations table is extracted including only mean and stddev observations.
+Finally, we read the features table to assign titles properly to the table of observations.
+```{r}
+get_obs_table <- function() {
+                            # read features
+                            features = read.table("UCI\ HAR\ Dataset/features.txt", header=FALSE, sep="")
+                            # read test data
+                            test_tab = read.table("UCI\ HAR\ Dataset/test/X_test.txt", header=FALSE, sep="")
+                            dim(test_tab)
+                            # read train data
+                            train_tab = read.table("UCI\ HAR\ Dataset/train/X_train.txt", header=FALSE, sep="")
+                            dim(train_tab)                            
+                            # merge train and test data
+                            obs_table = rbind(test_tab, train_tab)                            
+                            # extract only the measurements concerning the mean and standard deviation for each measurement.
+                            indexes = which(grepl( "*mean\\(\\)*|*std\\(\\)*", features$V2))
+                            sub_obs_table = select(obs_table, indexes)                            
+                            # get the descriptions of the measurements                            
+                            descriptions = features[which(grepl( "*mean\\(\\)*|*std\\(\\)*", features$V2)),][2]
+                            names(sub_obs_table) = descriptions$V2
+                            return(sub_obs_table)            
+}
+```
+
+## Subjects table
+Similarly, we put together training and test data and assign a title to the resulting variable. 
+```{r}
+get_subjects_table <- function() {
+                            # read test data
+                            test_subj_tab = read.table("UCI\ HAR\ Dataset/test/subject_test.txt", header=FALSE, sep="")
+                            dim(test_subj_tab)
+                            # read train data
+                            train_subj_tab = read.table("UCI\ HAR\ Dataset/train/subject_train.txt", header=FALSE, sep="")
+                            dim(train_subj_tab)
+                            # merge train and test data 
+                            subjects_table = rbind(test_subj_tab, train_subj_tab)
+                            # name the subject table
+                            names(subjects_table) = c("SubjectID")
+                            return(subjects_table)
+}
+```
+
+## Activities table
+After putting together the training and test data sets, we retrieve the table of activity lables and join the two resulting tables.
+```{r}
+get_activities_table <- function() {                            
+                            # read test data
+                            test_activity_tab = read.table("UCI\ HAR\ Dataset/test/y_test.txt", header=FALSE, sep="")
+                            dim(test_activity_tab)
+                            # read train data
+                            train_activity_tab = read.table("UCI\ HAR\ Dataset/train/y_train.txt", header=FALSE, sep="")
+                            dim(train_activity_tab)    
+                            # merge train and test data
+                            activities_table = rbind(test_activity_tab, train_activity_tab)
+                            # read the activity labels
+                            activity_labels = read.table("UCI\ HAR\ Dataset/activity_labels.txt", header=FALSE, sep="")
+                            # join activity_labels with the activity table to assign a label to each activity code
+                            complete_activity = merge(activities_table, activity_labels, by="V1")
+                            # name the columns
+                            names(complete_activity) = c("ActivityCode", "ActivityDescription")
+                            return(complete_activity)
+}
+```
+
+## Finalizing steps
+After retrieving the three tables, we bind them together by column and form a big *wide* table. As wide tables are not flexible for performing manipulations, we transform it into a long table by using the function *melt*.
+```{r}
+observations_table = get_obs_table()
+activities_table = get_activities_table()
+subjects_table = get_subjects_table()
+
+# bind by column the three tables
+complete_table = cbind(subjects_table, activities_table, observations_table)
+# head(complete_table)
+
+# reshape to transform the table into a long one
+long_table <- melt(complete_table, id.vars=c("SubjectID", "ActivityCode","ActivityDescription"), variable.name="Measurement")
+head(long_table)
+```
+
+In order to compute the mean of the measurements for each subject, we use the library *dplyr* as follows.
+```{r}
+# grouping the observations by subject, activity and measurement
+grouped = group_by(long_table, SubjectID, ActivityCode, ActivityDescription, Measurement)
+head(grouped)
+
+# compute the mean of the each measurement
+final = summarise(grouped, meanVal=mean(value))
+head(final)
+```
+Finally, we write the result in a file.
+```{r}
+# write to file
+write.table(final, file="tidy_data.txt", row.names=FALSE)
+print(final)
+```
